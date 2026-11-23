@@ -1,0 +1,3 @@
+# Joint 2's board: only the B-G431B-ESC1's 8 MHz crystal (UM2516); the CAN host is in joint 1's machine.
+rcc:
+    hseFrequency: 8000000

@@ -1,0 +1,16 @@
+#!/bin/sh
+# Runs the two-servo arm (sim/scenario.yaml) and renders sim/arm.mp4 from the joint log.
+# Needs: the pyrite `sim` (on PATH, or SIM=/path/to/sim) and Python 3.12 (PYTHON=..., default python3.12).
+# First run creates sim/.venv with mujoco + imageio. Takes a few minutes: ~9 s of arm time, two boards.
+set -e
+cd "$(dirname "$0")/.."
+PY=${PYTHON:-python3.12}
+[ -x sim/.venv/bin/python ] || { $PY -m venv sim/.venv && sim/.venv/bin/pip -q install mujoco imageio imageio-ffmpeg pillow; }
+SITE=$(sim/.venv/bin/python -c 'import site; print(site.getsitepackages()[0])')
+DLL=${SIMANTIC_PYTHON_DLL:-$($PY -c 'import os,sys,sysconfig as s; d=os.path.join(s.get_config_var("LIBDIR"),s.get_config_var("LDLIBRARY")); print(d if os.path.exists(d) else os.path.join(sys.base_prefix,"Python"))')}
+LOG=sim/.arm_qpos.csv
+echo "running two FOC2 servos + MuJoCo arm (simulated time 9.2 s)..."
+SIMANTIC_PYTHON_DLL=$DLL PYTHONPATH=$SITE:sim ARM_QPOS_LOG=$LOG ${SIM:-sim} run --scenario sim/scenario.yaml 2>&1 \
+  | grep -E 'Normal|Synchro|pose|PASS|FAIL|error'
+sim/.venv/bin/python sim/render.py $LOG sim/arm.mp4
+echo "video: sim/arm.mp4"

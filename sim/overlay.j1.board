@@ -1,0 +1,8 @@
+# Joint 1's board: FOC2's CAN host rides in this machine (the address only parks it) on fdcan1's hub, and
+# serves joint 2 too over the scenario's CAN medium, at the 1 Mbit/s MX_FDCAN1_Init programs.
+canhost: CAN.ScriptedCanNode @ sysbus 0x50100000
+    file: "sim/can_host.py"
+    baudRate: 1000000
+# The B-G431B-ESC1's 8 MHz crystal (UM2516), which FOC2's SystemClock_Config runs the PLL from.
+rcc:
+    hseFrequency: 8000000
