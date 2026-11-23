@@ -1,0 +1,41 @@
+# Two unmodified FOC2 servos (this repo, 01-Firmware/B-G431B-ESC1-v2) on two simulated STM32G431CBs drive the
+# two joints of a 2-link arm whose mechanics MuJoCo simulates. Run it with ./sim/demo from the repo root.
+#
+# Firmware: foc2.elf (CAN ID 1) and foc2_id2.elf (CAN ID 2) come from sim/build.sh: FOC2's documented user
+# settings SENSOR_TYPE -> AS5600_I2C and PERFORM_AUTO_CALIBRATION_AT_STARTUP on, and for joint 2 the
+# compile-time `#define REG_ID_VALUE` 1 -> 2. No logic is changed.
+#
+# Peers (Python): plant.py models each joint's B-G431B-ESC1 bridge and motor electrically (dq currents,
+# averaged switching, shunt/VBUS/NTC pads) and applies N x (1.5 P PSI iq) to its hinge in ONE MuJoCo world
+# (arm.py, gear ratio N = 5); MuJoCo does gravity, link inertia and the coupling between joints, and the
+# angle comes back through an AS5600 encoder (encoder.py). The world steps 50 us once both joints have posted
+# their torques, so the result does not depend on thread order. can_host.py, on the shared CAN bus, arms both
+# servos after calibration and commands 3 poses (j1/j2 deg: 40/20, 70/-40, 20/60), 1.2 s each, and prints
+# "CAN: PASS" / "ARM: PASS" when FOC2's feedback and MuJoCo's angles settle within 3 deg.
+#
+# Arm: two 0.15 m links, 50 g each, 10 g tip. Worst gravity torque 0.177 Nm at j1; the motor gives 1.51 Nm
+# at the joint (8.6x margin). The ~1 deg droop at j1 is FOC2's P+D position loop holding against gravity.
+# MODELED SIMPLIFICATION: averaged switching, ideal sensors and gearbox, example gimbal-motor numbers; this
+# arm has not been built on real hardware.
+machines:
+  j1:
+    mcu: STM32G431CB
+    overlay: overlay.j1.board
+    elf: foc2.elf
+    parts:
+      - { name: plant,   type: peripheral,  address: 0xA0000400, size: 0x4, script: joint1.py }
+      - { name: encoder, type: i2c-device,  bus: i2c1, address: 0x36, script: joint1.py }
+      - { name: button,  type: gpio-device, outputs: [PC10], script: button.py }
+  j2:
+    mcu: STM32G431CB
+    overlay: overlay.j2.board
+    elf: foc2_id2.elf
+    parts:
+      - { name: plant,   type: peripheral,  address: 0xA0000400, size: 0x4, script: joint2.py }
+      - { name: encoder, type: i2c-device,  bus: i2c1, address: 0x36, script: joint2.py }
+      - { name: button,  type: gpio-device, outputs: [PC10], script: button.py }
+media:
+  - type: can
+    connect: [j1.fdcan1, j1.canhost, j2.fdcan1]
+quantum: 0.00001
+timeout: 9.2
